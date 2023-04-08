@@ -24,10 +24,14 @@ public class SimpleArticleService implements ArticleService {
     public void generate(Store<Word> wordStore, int count, Store<Article> articleStore) {
         LOGGER.info("Геренация статей в количестве {}", count);
         var words = wordStore.findAll();
-        var articles = IntStream.iterate(0, i -> i < count, i -> i + 1)
-                .peek(i -> LOGGER.info("Сгенерирована статья № {}", i))
-                .mapToObj((x) -> articleGenerator.generate(words))
-                .collect(Collectors.toList());
-        articles.forEach(articleStore::save);
+        int portion = 10_000;
+        for (int i = 0; i < count; i = i + portion) {
+            int start = i;
+            var articles = IntStream.iterate(start, n -> n < start + portion && n < count, n -> n + 1)
+                    .peek(n -> LOGGER.info("Сгенерирована статья № {}", n))
+                    .mapToObj((x) -> articleGenerator.generate(words))
+                    .collect(Collectors.toList());
+            articleStore.save(articles);
+        }
     }
 }

@@ -66,21 +66,29 @@ public class WordStore implements Store<Word>, AutoCloseable {
     }
 
     @Override
-    public Word save(Word model) {
-        LOGGER.info("Добавление слова в базу данных");
+    public List<Word> save(List<Word> models) {
+        LOGGER.info("Добавление слов в базу данных");
         var sql = "insert into dictionary(word) values(?);";
         try (var statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            statement.setString(1, model.getValue());
-            statement.executeUpdate();
+            connection.setAutoCommit(false);
+            for (Word model:models) {
+                statement.setString(1, model.getValue());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+            connection.commit();
+            connection.setAutoCommit(true);
             var key = statement.getGeneratedKeys();
-            if (key.next()) {
-                model.setId(key.getInt(1));
+            for (Word model:models) {
+                if (key.next()) {
+                    model.setId(key.getInt(1));
+                }
             }
         } catch (Exception e) {
             LOGGER.error("Не удалось выполнить операцию: { }", e.getCause());
             throw new IllegalStateException();
         }
-        return model;
+        return models;
     }
 
     @Override

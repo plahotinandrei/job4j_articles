@@ -54,21 +54,29 @@ public class ArticleStore implements Store<Article>, AutoCloseable {
     }
 
     @Override
-    public Article save(Article model) {
-        LOGGER.info("Сохранение статьи");
+    public List<Article> save(List<Article> models) {
+        LOGGER.info("Сохранение статей");
         var sql = "insert into articles(text) values(?)";
         try (var statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            statement.setString(1, model.getText());
-            statement.executeUpdate();
+            connection.setAutoCommit(false);
+            for (Article model:models) {
+                statement.setString(1, model.getText());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+            connection.commit();
+            connection.setAutoCommit(true);
             var key = statement.getGeneratedKeys();
-            while (key.next()) {
-                model.setId(key.getInt(1));
+            for (Article model:models) {
+                if (key.next()) {
+                    model.setId(key.getInt(1));
+                }
             }
         } catch (Exception e) {
             LOGGER.error("Не удалось выполнить операцию: { }", e.getCause());
             throw new IllegalStateException();
         }
-        return model;
+        return models;
     }
 
     @Override
